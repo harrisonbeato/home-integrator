@@ -1,0 +1,13 @@
+services:
+  home-integrator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: home-integrator
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./data:/data
+    network_mode: host
+    stop_grace_period: 10s

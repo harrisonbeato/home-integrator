@@ -1,0 +1,65 @@
+import asyncio
+import logging
+
+import httpx
+
+from app.hikvision.parser import extract_xml_documents, parse_event
+
+logger = logging.getLogger(__name__)
+
+
+class HikvisionClient:
+    def __init__(self, host: str, username: str, password: str):
+        self.url = (
+            f"http://{host}/ISAPI/Event/notification/alertStream"
+        )
+        self.auth = httpx.DigestAuth(username, password)
+
+    async def events(self):
+        while True:
+            try:
+                async for event in self._stream():
+                    yield event
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.exception(
+                    "Hikvision event stream failed; reconnecting in 5s"
+                )
+                await asyncio.sleep(5)
+
+    async def _stream(self):
+        timeout = httpx.Timeout(
+            connect=10.0,
+            read=None,
+            write=10.0,
+            pool=10.0,
+        )
+
+        async with httpx.AsyncClient(
+            auth=self.auth,
+            timeout=timeout,
+        ) as client:
+            logger.info("Connecting to Hikvision: %s", self.url)
+
+            async with client.stream("GET", self.url) as response:
+                response.raise_for_status()
+
+                logger.info(
+                    "Hikvision event stream connected: HTTP %s",
+                    response.status_code,
+                )
+
+                buffer = ""
+
+                async for chunk in response.aiter_text():
+                    buffer += chunk
+                    documents, buffer = extract_xml_documents(buffer)
+
+                    for document in documents:
+                        try:
+                            yield parse_event(document)
+                        except Exception:
+                            logger.exception(
+                                "Failed to parse Hikvision event XML"
+                            )
