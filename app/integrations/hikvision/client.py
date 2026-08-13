@@ -1,10 +1,9 @@
 import asyncio
 import logging
-import xml.etree.ElementTree as ET
 
 import httpx
 
-from app.hikvision.parser import (
+from app.integrations.hikvision.parser import (
     extract_xml_documents,
     parse_event,
 )

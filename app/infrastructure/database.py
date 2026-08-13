@@ -1,11 +1,10 @@
 import sqlite3
 from pathlib import Path
 
-from app.models import HikvisionEvent
+from app.domain.events import HikvisionEvent
 
 
 class Database:
-
     def __init__(self, path: str):
         self.path = path
 
@@ -40,7 +39,6 @@ class Database:
         self,
         event: HikvisionEvent,
     ) -> None:
-
         with sqlite3.connect(self.path) as connection:
             connection.execute(
                 """

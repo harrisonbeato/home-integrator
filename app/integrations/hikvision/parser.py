@@ -1,7 +1,7 @@
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 
-from app.models import HikvisionEvent
+from app.domain.events import HikvisionEvent
 
 
 def local_name(tag: str) -> str:
