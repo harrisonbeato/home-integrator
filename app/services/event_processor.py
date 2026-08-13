@@ -76,20 +76,10 @@ class EventProcessor:
         )
 
         return (
-            "🚨 Home Integrator
-"
-            "
-"
-            f"{description}
-"
-            "
-"
-            f"Câmera: {camera_name}
-"
-            f"IP: {event.camera_ip}
-"
-            f"Canal: {event.channel_id or '-'}
-"
+            "🚨 Home Integrator\n\n"
+            f"{description}\n\n"
+            f"Câmera: {camera_name}\n"
+            f"IP: {event.camera_ip}\n"
             f"Horário: {timestamp}"
         )
 

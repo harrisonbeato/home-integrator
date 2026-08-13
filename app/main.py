@@ -2,9 +2,9 @@ import asyncio
 import logging
 
 from app.config import get_settings
-from app.database import Database
+from app.infrastructure.database import Database
+from app.integrations.telegram.client import TelegramClient
 from app.services.event_processor import EventProcessor
-from app.telegram.client import TelegramClient
 
 
 def configure_logging(level: str) -> None:
