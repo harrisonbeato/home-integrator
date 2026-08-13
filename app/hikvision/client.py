@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import xml.etree.ElementTree as ET
 
 import httpx
 
@@ -26,6 +27,11 @@ class HikvisionClient:
             f"http://{host}"
             "/ISAPI/Event/notification/"
             "alertStream"
+        )
+
+        self.snapshot_url = (
+            f"http://{host}"
+            "/ISAPI/Streaming/channels/101/picture"
         )
 
         self.auth = httpx.DigestAuth(
@@ -117,3 +123,25 @@ class HikvisionClient:
                                 "Hikvision event XML",
                                 self.host,
                             )
+
+    async def get_snapshot(self) -> bytes:
+
+        timeout = httpx.Timeout(
+            connect=10.0,
+            read=10.0,
+            write=10.0,
+            pool=10.0,
+        )
+
+        async with httpx.AsyncClient(
+            auth=self.auth,
+            timeout=timeout,
+        ) as client:
+
+            response = await client.get(
+                self.snapshot_url
+            )
+
+            response.raise_for_status()
+
+            return response.content

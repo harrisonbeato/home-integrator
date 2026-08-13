@@ -134,19 +134,24 @@ async def monitor_camera(
 
         try:
 
-            await telegram.send_message(
-                format_message(event)
+            photo = await client.get_snapshot()
+
+            await telegram.send_photo(
+                photo=photo,
+                caption=format_message(event),
             )
 
             logger.info(
-                "[%s] Telegram notification sent",
+                "[%s] Telegram notification with "
+                "snapshot sent",
                 camera_ip,
             )
 
         except Exception:
 
             logger.exception(
-                "[%s] Failed to send Telegram notification",
+                "[%s] Failed to send Telegram "
+                "notification with snapshot",
                 camera_ip,
             )
 
