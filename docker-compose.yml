@@ -14,3 +14,8 @@ services:
       - ./data:/data
     network_mode: host
     stop_grace_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
