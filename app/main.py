@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from zoneinfo import ZoneInfo
 
 from app.config import get_settings
 from app.database import Database
@@ -62,7 +63,9 @@ def format_message(
 
     timestamp = (
         event.received_at
-        .astimezone()
+        .astimezone(
+            ZoneInfo("America/Sao_Paulo")
+        )
         .strftime("%d/%m/%Y %H:%M:%S")
     )
 
