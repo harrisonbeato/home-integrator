@@ -6,16 +6,23 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN groupadd --system homeintegrator \
-    && useradd --system --gid homeintegrator --home /app homeintegrator \
+RUN groupadd --gid 1000 homeintegrator \
+    && useradd \
+        --uid 1000 \
+        --gid 1000 \
+        --create-home \
+        homeintegrator \
     && mkdir -p /data \
-    && chown -R homeintegrator:homeintegrator /app /data
+    && chown -R 1000:1000 /app /data
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements.txt /tmp/requirements.txt
 
-COPY app ./app
+RUN pip install \
+    --no-cache-dir \
+    --prefer-binary \
+    -r /tmp/requirements.txt \
+    && rm -f /tmp/requirements.txt
 
-USER homeintegrator
+USER 1000:1000
 
 CMD ["python", "-m", "app.main"]

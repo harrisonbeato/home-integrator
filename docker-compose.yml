@@ -8,6 +8,9 @@ services:
     env_file:
       - .env
     volumes:
+      # Código Python - desenvolvimento
+      - ./app:/app/app
+      # SQLite persistente
       - ./data:/data
     network_mode: host
     stop_grace_period: 10s
