@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from app.domain.events import HikvisionEvent
@@ -8,6 +9,8 @@ from app.integrations.telegram.client import TelegramClient
 
 
 class EventProcessor:
+
+    ALERT_COOLDOWN = timedelta(minutes=2)
 
     def __init__(
         self,
@@ -23,6 +26,7 @@ class EventProcessor:
         self.database = database
         self.telegram = telegram
         self.target_types = target_types
+        self._last_alert_at: dict[tuple[str, str], datetime] = {}
 
     def is_relevant_event(
         self,
@@ -52,6 +56,75 @@ class EventProcessor:
             return "Veículo detectado"
 
         return "Alvo detectado"
+
+    def should_notify(
+        self,
+        event: HikvisionEvent,
+    ) -> bool:
+
+        if not self.is_relevant_event(event):
+            return False
+
+        alert_key = (
+            event.camera_ip,
+            event.event_type or "unknown",
+        )
+        event_time = event.received_at.astimezone(timezone.utc)
+        last_alert = self._last_alert_at.get(alert_key)
+
+        if last_alert and event_time - last_alert < self.ALERT_COOLDOWN:
+            return False
+
+        self._last_alert_at[alert_key] = event_time
+        return True
+
+    async def process_event(
+        self,
+        event: HikvisionEvent,
+        *,
+        client: HikvisionClient | None = None,
+    ) -> None:
+
+        self.database.save_event(event)
+
+        if not self.should_notify(event):
+            return
+
+        logger = logging.getLogger(
+            f"camera.{event.camera_ip}"
+        )
+
+        logger.info(
+            "[%s] Relevant event: target=%s camera=%s",
+            event.camera_ip,
+            event.target_type,
+            event.channel_name,
+        )
+
+        try:
+            snapshot_client = client or HikvisionClient(
+                host=event.camera_ip,
+                username=self.username,
+                password=self.password,
+            )
+
+            photo = await snapshot_client.get_snapshot()
+
+            await self.telegram.send_photo(
+                photo=photo,
+                caption=self.format_message(event),
+            )
+
+            logger.info(
+                "[%s] Telegram notification with snapshot sent",
+                event.camera_ip,
+            )
+
+        except Exception:
+            logger.exception(
+                "[%s] Failed to send Telegram notification with snapshot",
+                event.camera_ip,
+            )
 
     def format_message(
         self,
@@ -100,8 +173,6 @@ class EventProcessor:
 
         async for event in client.events():
 
-            self.database.save_event(event)
-
             logger.debug(
                 "[%s] Event: "
                 "type=%s state=%s target=%s",
@@ -111,36 +182,4 @@ class EventProcessor:
                 event.target_type,
             )
 
-            if not self.is_relevant_event(event):
-                continue
-
-            logger.info(
-                "[%s] Relevant event: "
-                "target=%s camera=%s",
-                camera_ip,
-                event.target_type,
-                event.channel_name,
-            )
-
-            try:
-
-                photo = await client.get_snapshot()
-
-                await self.telegram.send_photo(
-                    photo=photo,
-                    caption=self.format_message(event),
-                )
-
-                logger.info(
-                    "[%s] Telegram notification with "
-                    "snapshot sent",
-                    camera_ip,
-                )
-
-            except Exception:
-
-                logger.exception(
-                    "[%s] Failed to send Telegram "
-                    "notification with snapshot",
-                    camera_ip,
-                )
+            await self.process_event(event, client=client)
