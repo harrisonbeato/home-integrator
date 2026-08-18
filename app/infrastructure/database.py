@@ -1,3 +1,4 @@
+import shutil
 import sqlite3
 from pathlib import Path
 
@@ -5,15 +6,74 @@ from app.domain.events import HikvisionEvent
 
 
 class Database:
-    def __init__(self, path: str):
+    def __init__(
+        self,
+        path: str,
+        rotation_max_mb: int = 50,
+        rotation_keep: int = 3,
+    ):
         self.path = path
+        self.rotation_max_bytes = max(0, rotation_max_mb) * 1024 * 1024
+        self.rotation_keep = max(1, rotation_keep)
 
         Path(path).parent.mkdir(
             parents=True,
             exist_ok=True,
         )
 
+    def _can_rotate(self) -> bool:
+        database_file = Path(self.path)
+        if not database_file.exists():
+            return True
+
+        try:
+            with sqlite3.connect(self.path) as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                connection.execute("ROLLBACK")
+                return True
+        except sqlite3.DatabaseError:
+            return False
+
+    def _rotate_if_needed(self) -> None:
+        if self.rotation_max_bytes <= 0:
+            return
+
+        database_file = Path(self.path)
+        if not database_file.exists():
+            return
+
+        if database_file.stat().st_size <= self.rotation_max_bytes:
+            return
+
+        if not self._can_rotate():
+            return
+
+        for index in range(self.rotation_keep, 0, -1):
+            archive_path = database_file.with_name(f"{database_file.name}.{index}")
+            next_archive_path = database_file.with_name(f"{database_file.name}.{index + 1}")
+
+            if index == self.rotation_keep:
+                if archive_path.exists():
+                    archive_path.unlink()
+                continue
+
+            if archive_path.exists():
+                archive_path.replace(next_archive_path)
+
+        rotated_path = database_file.with_name(f"{database_file.name}.1")
+        try:
+            shutil.copy2(database_file, rotated_path)
+        except OSError:
+            return
+
+        try:
+            database_file.unlink()
+        except OSError:
+            return
+
     def initialize(self) -> None:
+        self._rotate_if_needed()
+
         with sqlite3.connect(self.path) as connection:
             connection.execute(
                 """
@@ -39,6 +99,8 @@ class Database:
         self,
         event: HikvisionEvent,
     ) -> None:
+        self._rotate_if_needed()
+
         with sqlite3.connect(self.path) as connection:
             connection.execute(
                 """

@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     telegram_chat_id: str
 
     database_path: str = "/data/home_integrator.db"
+    database_rotation_max_mb: int = 50
+    database_rotation_keep: int = 3
     log_level: str = "INFO"
     allowed_target_types: str = "human,vehicle"
 

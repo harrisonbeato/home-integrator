@@ -35,7 +35,9 @@ async def run() -> None:
     )
 
     database = Database(
-        settings.database_path
+        settings.database_path,
+        rotation_max_mb=settings.database_rotation_max_mb,
+        rotation_keep=settings.database_rotation_keep,
     )
 
     database.initialize()
